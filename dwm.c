@@ -268,6 +268,7 @@ static Display *dpy;
 static Drw *drw;
 static Monitor *mons, *selmon;
 static Window root, wmcheckwin;
+static pid_t dwmrcpid;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"
@@ -1250,6 +1251,7 @@ propertynotify(XEvent *e)
 void
 quit(const Arg *arg)
 {
+    kill(dwmrcpid, SIGTERM );
 	running = 0;
 }
 
@@ -2125,6 +2127,26 @@ zoom(const Arg *arg)
 	pop(c);
 }
 
+pid_t
+spawnp(const Arg *arg) {
+    pid_t pid = fork();
+	if(pid == 0) {
+		if(dpy)
+			close(ConnectionNumber(dpy));
+		/*setsid();*/
+		execvp(((char **)arg->v)[0], (char **)arg->v);
+		fprintf(stderr, "dwm: execvp %s", ((char **)arg->v)[0]);
+		perror(" failed");
+		exit(EXIT_SUCCESS);
+	}
+    return pid;
+}
+static void startDwmrc()
+{
+    static const char *autoStart[] = {"./.dwmrc",NULL};
+    const char** v = autoStart;
+    dwmrcpid = spawnp( (const Arg*)&v);
+}
 int
 main(int argc, char *argv[])
 {
@@ -2138,6 +2160,9 @@ main(int argc, char *argv[])
 		die("dwm: cannot open display");
 	checkotherwm();
 	setup();
+
+    startDwmrc();
+
 	scan();
 	run();
 	cleanup();
